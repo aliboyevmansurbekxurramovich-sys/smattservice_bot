@@ -86,11 +86,11 @@ async def xarajat_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📋 Buyurtma ID sini kiriting:")
     async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 q = update.callback_query
-    await q.answer()
-    uid = q.from_user.id
-    data = q.data
+await q.answer()
+uid = q.from_user.id
+data = q.data
 
-    if data.startswith("usta_") and data != "usta_qosh":
+if data.startswith("usta_") and data != "usta_qosh":
         parts = data.split("_", 2)
         usta_id = int(parts[1])
         usta_ismi = parts[2]
