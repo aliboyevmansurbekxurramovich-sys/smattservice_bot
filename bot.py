@@ -10,25 +10,15 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_IDS = [int(x) for x in os.environ.get("ADMIN_IDS", "0").split(",") if x.strip()]
-
 DB = "ustaxona.db"
 user_state = {}
 user_data = {}
 
 def init_db():
     con = sqlite3.connect(DB)
-    con.execute("""CREATE TABLE IF NOT EXISTS ustalar (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ismi TEXT, tel TEXT, mutaxassis TEXT)""")
-    con.execute("""CREATE TABLE IF NOT EXISTS buyurtmalar (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        mijoz_ismi TEXT, mijoz_tel TEXT, model TEXT, muammo TEXT,
-        narx INTEGER DEFAULT 0, xarajat INTEGER DEFAULT 0,
-        usta_id INTEGER, usta_ismi TEXT, tayyor TEXT,
-        status TEXT DEFAULT 'Kutilmoqda',
-        sana TEXT DEFAULT (datetime('now')))""")
-    con.execute("""CREATE TABLE IF NOT EXISTS foydalanuvchilar (
-        chat_id INTEGER PRIMARY KEY, tel TEXT)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS ustalar (id INTEGER PRIMARY KEY AUTOINCREMENT, ismi TEXT, tel TEXT, mutaxassis TEXT)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS buyurtmalar (id INTEGER PRIMARY KEY AUTOINCREMENT, mijoz_ismi TEXT, mijoz_tel TEXT, model TEXT, muammo TEXT, narx INTEGER DEFAULT 0, xarajat INTEGER DEFAULT 0, usta_id INTEGER, usta_ismi TEXT, tayyor TEXT, status TEXT DEFAULT 'Kutilmoqda', sana TEXT DEFAULT (datetime('now')))""")
+    con.execute("""CREATE TABLE IF NOT EXISTS foydalanuvchilar (chat_id INTEGER PRIMARY KEY, tel TEXT)""")
     con.commit()
     con.close()
 
@@ -37,31 +27,24 @@ def db():
     con.row_factory = sqlite3.Row
     return con
 
-def set_state(uid, state): user_state[uid] = state
+def set_state(uid, s): user_state[uid] = s
 def get_state(uid): return user_state.get(uid, "menu")
-def set_ud(uid, key, val):
+def set_ud(uid, k, v):
     if uid not in user_data: user_data[uid] = {}
-    user_data[uid][key] = val
-def get_ud(uid, key, default=None): return user_data.get(uid, {}).get(key, default)
+    user_data[uid][k] = v
+def get_ud(uid, k, d=None): return user_data.get(uid, {}).get(k, d)
 def clear_ud(uid): user_data[uid] = {}
 def fmt(n):
     try: return f"{int(n):,}".replace(",", " ") + " so'm"
     except: return "0 so'm"
-
 def main_kb():
-    return ReplyKeyboardMarkup([
-        ["📱 Tel qabul"],
-        ["📋 Buyurtmalar", "👨‍🔧 Ustalar"],
-        ["📊 Hisobot"],
-    ], resize_keyboard=True)
+    return ReplyKeyboardMarkup([["📱 Tel qabul"], ["📋 Buyurtmalar", "👨‍🔧 Ustalar"], ["📊 Hisobot"]], resize_keyboard=True)
+
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     set_state(uid, "menu")
     clear_ud(uid)
-    await update.message.reply_text(
-        "👋 Tel Ustaxona botiga xush kelibsiz!\n\nMenyudan tanlang:",
-        reply_markup=main_kb()
-    )
+    await update.message.reply_text("👋 Tel Ustaxona botiga xush kelibsiz!\n\nMenyudan tanlang:", reply_markup=main_kb())
 
 async def contact_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
@@ -71,8 +54,7 @@ async def contact_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         set_ud(uid, "tel", tel)
         set_state(uid, "q_model")
         con = db()
-        con.execute("INSERT OR REPLACE INTO foydalanuvchilar (chat_id, tel) VALUES (?,?)",
-                    (uid, tel.replace("+","")))
+        con.execute("INSERT OR REPLACE INTO foydalanuvchilar (chat_id, tel) VALUES (?,?)", (uid, tel.replace("+", "")))
         con.commit()
         con.close()
         await update.message.reply_text("📱 Telefon modeli:", reply_markup=main_kb())
@@ -84,25 +66,21 @@ async def xarajat_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     set_state(uid, "x_id")
     await update.message.reply_text("📋 Buyurtma ID sini kiriting:")
-    async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-q = update.callback_query
-await q.answer()
-uid = q.from_user.id
-data = q.data
 
-if data.startswith("usta_") and data != "usta_qosh":
+async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    uid = q.from_user.id
+    data = q.data
+    if data.startswith("usta_") and data != "usta_qosh":
         parts = data.split("_", 2)
-        usta_id = int(parts[1])
-        usta_ismi = parts[2]
-        set_ud(uid, "usta_id", usta_id)
-        set_ud(uid, "usta_ismi", usta_ismi)
+        set_ud(uid, "usta_id", int(parts[1]))
+        set_ud(uid, "usta_ismi", parts[2])
         set_state(uid, "q_tayyor")
         await q.message.reply_text("⏰ Tayyor bo'lish vaqti (masalan: 2 kun):")
-
     elif data == "usta_qosh":
         set_state(uid, "usta_ismi")
         await q.message.reply_text("👤 Usta ismini kiriting:")
-
     elif data.startswith("tayyor_"):
         bid = int(data.split("_")[1])
         con = db()
@@ -110,27 +88,53 @@ if data.startswith("usta_") and data != "usta_qosh":
         con.execute("UPDATE buyurtmalar SET status='Tayyor' WHERE id=?", (bid,))
         con.commit()
         con.close()
-        await q.message.reply_text(f"✅ #{bid} TAYYOR deb belgilandi!")
+        await q.message.reply_text(f"✅ #{bid} TAYYOR!")
         if b:
             con = db()
-            m = con.execute("SELECT chat_id FROM foydalanuvchilar WHERE tel=?",
-                           (b["mijoz_tel"].replace("+",""),)).fetchone()
+            m = con.execute("SELECT chat_id FROM foydalanuvchilar WHERE tel=?", (b["mijoz_tel"].replace("+", ""),)).fetchone()
             con.close()
             if m:
                 try:
-                    await ctx.bot.send_message(
-                        chat_id=m["chat_id"],
-                        text=f"✅ {b['mijoz_ismi']}, *{b['model']}* TAYYOR! 🎉\n💰 {fmt(b['narx'])}\n📋 #{bid}",
-                        parse_mode="Markdown"
-                    )
+                    await ctx.bot.send_message(chat_id=m["chat_id"], text=f"✅ {b['mijoz_ismi']}, *{b['model']}* TAYYOR! 🎉\n💰 {fmt(b['narx'])}\n📋 #{bid}", parse_mode="Markdown")
                 except: pass
-
     elif data.startswith("berildi_"):
-                         async def message_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+        bid = int(data.split("_")[1])
+        con = db()
+        con.execute("UPDATE buyurtmalar SET status='Berildi' WHERE id=?", (bid,))
+        con.commit()
+        con.close()
+        await q.message.reply_text(f"📦 #{bid} BERILDI!")
+    elif data.startswith("h_"):
+        davr = data[2:]
+        now = datetime.datetime.now()
+        if davr == "bugun":
+            start_d = now.strftime("%Y-%m-%d 00:00:00")
+            davr_txt = "Bugungi"
+        elif davr == "hafta":
+            start_d = (now - datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+            davr_txt = "Haftalik"
+        else:
+            start_d = now.strftime("%Y-%m-01 00:00:00")
+            davr_txt = "Oylik"
+        con = db()
+        s = con.execute("SELECT COUNT(*) n, COALESCE(SUM(narx),0) j, COALESCE(SUM(xarajat),0) x FROM buyurtmalar WHERE sana>=?", (start_d,)).fetchone()
+        ustalar = con.execute("SELECT * FROM ustalar").fetchall()
+        con.close()
+        sof = s["j"] - s["x"]
+        msg = f"📊 *{davr_txt} hisobot:*\n\n📦 Jami: *{s['n']}* ta\n💵 Tushum: *{fmt(s['j'])}*\n🔴 Xarajat: *{fmt(s['x'])}*\n🟢 Sof foyda: *{fmt(sof)}*\n💳 Ish haqi fondi: *{fmt(sof//2)}*\n\n"
+        for u in ustalar:
+            con = db()
+            us = con.execute("SELECT COUNT(*) n, COALESCE(SUM(narx),0) j, COALESCE(SUM(xarajat),0) x FROM buyurtmalar WHERE usta_id=? AND sana>=?", (u["id"], start_d)).fetchone()
+            con.close()
+            if us["n"] > 0:
+                s2 = us["j"] - us["x"]
+                msg += f"👨‍🔧 *{u['ismi']}:* {us['n']} ta | Sof: {fmt(s2)} | 💳 *{fmt(s2//2)}*\n"
+        await q.message.reply_text(msg, parse_mode="Markdown")
+
+async def message_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     text = update.message.text or ""
     state = get_state(uid)
-
     if text == "📱 Tel qabul":
         if uid not in ADMIN_IDS:
             await update.message.reply_text("⛔ Siz admin emassiz!")
@@ -138,30 +142,23 @@ if data.startswith("usta_") and data != "usta_qosh":
         clear_ud(uid)
         set_state(uid, "q_ismi")
         await update.message.reply_text("👤 Mijoz ismini kiriting:")
-
     elif state == "q_ismi":
         set_ud(uid, "ismi", text)
         set_state(uid, "q_tel")
-        kb = ReplyKeyboardMarkup(
-            [[KeyboardButton("📞 Telefon ulashish", request_contact=True)], ["Orqaga 🔙"]],
-            resize_keyboard=True, one_time_keyboard=True)
+        kb = ReplyKeyboardMarkup([[KeyboardButton("📞 Telefon ulashish", request_contact=True)]], resize_keyboard=True, one_time_keyboard=True)
         await update.message.reply_text("📞 Mijoz telefon raqami:", reply_markup=kb)
-
     elif state == "q_tel":
         set_ud(uid, "tel", text)
         set_state(uid, "q_model")
         await update.message.reply_text("📱 Telefon modeli:", reply_markup=main_kb())
-
     elif state == "q_model":
         set_ud(uid, "model", text)
         set_state(uid, "q_muammo")
         await update.message.reply_text("🔧 Muammo tavsifi:")
-
     elif state == "q_muammo":
         set_ud(uid, "muammo", text)
         set_state(uid, "q_narx")
         await update.message.reply_text("💰 Kelishilgan narx (so'mda):")
-
     elif state == "q_narx":
         try:
             narx = int(text.replace(" ", "").replace(",", ""))
@@ -176,13 +173,9 @@ if data.startswith("usta_") and data != "usta_qosh":
             await update.message.reply_text("⚠️ Avval usta qo'shing!")
             set_state(uid, "menu")
             return
-        buttons = [[InlineKeyboardButton(f"👨‍🔧 {u['ismi']} ({u['mutaxassis']})",
-                   callback_data=f"usta_{u['id']}_{u['ismi']}")]
-                   for u in ustalar]
+        buttons = [[InlineKeyboardButton(f"👨‍🔧 {u['ismi']} ({u['mutaxassis']})", callback_data=f"usta_{u['id']}_{u['ismi']}")] for u in ustalar]
         set_state(uid, "q_usta")
-        await update.message.reply_text("👨‍🔧 Ustani tanlang:",
-                                        reply_markup=InlineKeyboardMarkup(buttons))
-
+        await update.message.reply_text("👨‍🔧 Ustani tanlang:", reply_markup=InlineKeyboardMarkup(buttons))
     elif state == "q_tayyor":
         ismi = get_ud(uid, "ismi")
         tel = get_ud(uid, "tel")
@@ -191,21 +184,14 @@ if data.startswith("usta_") and data != "usta_qosh":
         narx = get_ud(uid, "narx")
         usta_id = get_ud(uid, "usta_id")
         usta_ismi = get_ud(uid, "usta_ismi")
-        tayyor = text
         con = db()
-        cur = con.execute(
-            "INSERT INTO buyurtmalar (mijoz_ismi, mijoz_tel, model, muammo, narx, usta_id, usta_ismi, tayyor) VALUES (?,?,?,?,?,?,?,?)",
-            (ismi, tel, model, muammo, narx, usta_id, usta_ismi, tayyor))
+        cur = con.execute("INSERT INTO buyurtmalar (mijoz_ismi, mijoz_tel, model, muammo, narx, usta_id, usta_ismi, tayyor) VALUES (?,?,?,?,?,?,?,?)", (ismi, tel, model, muammo, narx, usta_id, usta_ismi, text))
         bid = cur.lastrowid
         con.commit()
         con.close()
         set_state(uid, "menu")
         clear_ud(uid)
-        await update.message.reply_text(
-            f"✅ Buyurtma qabul qilindi!\n\n📋 #{bid}\n👤 {ismi}\n📞 {tel}\n"
-            f"📱 {model}\n🔧 {muammo}\n👨‍🔧 {usta_ismi}\n💰 {fmt(narx)}\n⏰ {tayyor}",
-            reply_markup=main_kb())
-
+        await update.message.reply_text(f"✅ Buyurtma qabul qilindi!\n\n📋 #{bid}\n👤 {ismi}\n📞 {tel}\n📱 {model}\n🔧 {muammo}\n👨‍🔧 {usta_ismi}\n💰 {fmt(narx)}\n⏰ {text}", reply_markup=main_kb())
     elif text == "📋 Buyurtmalar":
         con = db()
         rows = con.execute("SELECT * FROM buyurtmalar ORDER BY id DESC LIMIT 15").fetchall()
@@ -213,21 +199,15 @@ if data.startswith("usta_") and data != "usta_qosh":
         if not rows:
             await update.message.reply_text("📭 Buyurtma yo'q.")
             return
-        STATUS = {"Kutilmoqda":"⏳","Jarayonda":"🔧","Tayyor":"✅","Berildi":"📦"}
+        STATUS = {"Kutilmoqda": "⏳", "Jarayonda": "🔧", "Tayyor": "✅", "Berildi": "📦"}
         msg = "📋 *Buyurtmalar:*\n\n"
         buttons = []
         for b in rows:
-            e = STATUS.get(b["status"],"📋")
-            msg += f"{e} *#{b['id']}* {b['mijoz_ismi']} | {b['model']}\n"
+            msg += f"{STATUS.get(b['status'], '📋')} *#{b['id']}* {b['mijoz_ismi']} | {b['model']}\n"
             msg += f"   👨‍🔧 {b['usta_ismi']} | 💰 {fmt(b['narx'])} | {b['status']}\n\n"
             if b["status"] != "Berildi":
-                buttons.append([
-                    InlineKeyboardButton(f"✅ #{b['id']} Tayyor", callback_data=f"tayyor_{b['id']}"),
-                    InlineKeyboardButton(f"📦 #{b['id']} Berildi", callback_data=f"berildi_{b['id']}")
-                ])
-        await update.message.reply_text(msg, parse_mode="Markdown",
-                                        reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
-
+                buttons.append([InlineKeyboardButton(f"✅ #{b['id']} Tayyor", callback_data=f"tayyor_{b['id']}"), InlineKeyboardButton(f"📦 #{b['id']} Berildi", callback_data=f"berildi_{b['id']}")])
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
     elif text == "👨‍🔧 Ustalar":
         con = db()
         ustalar = con.execute("SELECT * FROM ustalar").fetchall()
@@ -235,50 +215,31 @@ if data.startswith("usta_") and data != "usta_qosh":
         msg = "👨‍🔧 *Ustalar:*\n\n"
         for u in ustalar:
             con = db()
-            s = con.execute(
-                "SELECT COUNT(*) n, COALESCE(SUM(narx),0) j, COALESCE(SUM(xarajat),0) x FROM buyurtmalar WHERE usta_id=?",
-                (u["id"],)).fetchone()
+            s = con.execute("SELECT COUNT(*) n, COALESCE(SUM(narx),0) j, COALESCE(SUM(xarajat),0) x FROM buyurtmalar WHERE usta_id=?", (u["id"],)).fetchone()
             con.close()
             sof = s["j"] - s["x"]
-            msg += f"👤 *{u['ismi']}* | {u['mutaxassis']}\n"
-            msg += f"   📦 {s['n']} ta | 💵 {fmt(s['j'])}\n"
-            msg += f"   🟢 Sof: {fmt(sof)} | 💳 Ish haqi: *{fmt(sof//2)}*\n\n"
+            msg += f"👤 *{u['ismi']}* | {u['mutaxassis']}\n   📦 {s['n']} ta | 💵 {fmt(s['j'])}\n   🟢 Sof: {fmt(sof)} | 💳 *{fmt(sof//2)}*\n\n"
         if not ustalar:
             msg = "👷 Usta yo'q."
-        buttons = []
-        if uid in ADMIN_IDS:
-            buttons = [[InlineKeyboardButton("➕ Usta qo'shish", callback_data="usta_qosh")]]
-        await update.message.reply_text(msg, parse_mode="Markdown",
-                                        reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
-
+        buttons = [[InlineKeyboardButton("➕ Usta qo'shish", callback_data="usta_qosh")]] if uid in ADMIN_IDS else []
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
     elif state == "usta_ismi":
         set_ud(uid, "u_ismi", text)
         set_state(uid, "usta_tel")
         await update.message.reply_text("📞 Usta telefoni:")
-
     elif state == "usta_tel":
         set_ud(uid, "u_tel", text)
         set_state(uid, "usta_mut")
         await update.message.reply_text("🔧 Mutaxassisligi:")
-
     elif state == "usta_mut":
         con = db()
-        con.execute("INSERT INTO ustalar (ismi, tel, mutaxassis) VALUES (?,?,?)",
-                    (get_ud(uid,"u_ismi"), get_ud(uid,"u_tel"), text))
+        con.execute("INSERT INTO ustalar (ismi, tel, mutaxassis) VALUES (?,?,?)", (get_ud(uid, "u_ismi"), get_ud(uid, "u_tel"), text))
         con.commit()
         con.close()
         set_state(uid, "menu")
-        await update.message.reply_text(f"✅ Usta qo'shildi!\n👤 {get_ud(uid,'u_ismi')}",
-                                        reply_markup=main_kb())
-
+        await update.message.reply_text(f"✅ Usta qo'shildi!\n👤 {get_ud(uid, 'u_ismi')}", reply_markup=main_kb())
     elif text == "📊 Hisobot":
-        buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📅 Bugun", callback_data="h_bugun"),
-             InlineKeyboardButton("📅 Haftalik", callback_data="h_hafta"),
-             InlineKeyboardButton("📅 Oylik", callback_data="h_oy")]
-        ])
-        await update.message.reply_text("📊 Davr tanlang:", reply_markup=buttons)
-
+        await update.message.reply_text("📊 Davr tanlang:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📅 Bugun", callback_data="h_bugun"), InlineKeyboardButton("📅 Haftalik", callback_data="h_hafta"), InlineKeyboardButton("📅 Oylik", callback_data="h_oy")]]))
     elif state == "x_id":
         try:
             bid = int(text)
@@ -293,24 +254,20 @@ if data.startswith("usta_") and data != "usta_qosh":
             await update.message.reply_text(f"💰 #{bid} ga xarajat summasini kiriting:")
         except:
             await update.message.reply_text("❌ Raqam kiriting.")
-
     elif state == "x_summa":
         try:
-            summa = int(text.replace(" ","").replace(",",""))
+            summa = int(text.replace(" ", "").replace(",", ""))
             bid = get_ud(uid, "x_bid")
             con = db()
             con.execute("UPDATE buyurtmalar SET xarajat=xarajat+? WHERE id=?", (summa, bid))
             con.commit()
             con.close()
             set_state(uid, "menu")
-            await update.message.reply_text(f"✅ Xarajat: {fmt(summa)}\n📋 #{bid}",
-                                            reply_markup=main_kb())
+            await update.message.reply_text(f"✅ Xarajat: {fmt(summa)}\n📋 #{bid}", reply_markup=main_kb())
         except:
             await update.message.reply_text("❌ Raqam kiriting.")
-
     else:
         await update.message.reply_text("Menyudan tanlang:", reply_markup=main_kb())
-
 
 def main():
     init_db()
