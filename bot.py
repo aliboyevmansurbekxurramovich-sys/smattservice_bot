@@ -245,6 +245,18 @@ async def message_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Usta qo'shildi!\n👤 {get_ud(uid, 'u_ismi')}", reply_markup=main_kb())
     elif text == "📊 Hisobot":
         await update.message.reply_text("📊 Davr tanlang:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📅 Bugun", callback_data="h_bugun"), InlineKeyboardButton("📅 Haftalik", callback_data="h_hafta"), InlineKeyboardButton("📅 Oylik", callback_data="h_oy")]]))
+        elif state == "tahrir_narx":
+        try:
+            narx = int(text.replace(" ", "").replace(",", ""))
+            bid = get_ud(uid, "tahrir_id")
+            con = db()
+            con.execute("UPDATE buyurtmalar SET narx=? WHERE id=?", (narx, bid))
+            con.commit()
+            con.close()
+            set_state(uid, "menu")
+            await update.message.reply_text(f"✅ #{bid} narx yangilandi: {fmt(narx)}", reply_markup=main_kb())
+        except:
+            await update.message.reply_text("❌ Raqam kiriting.")
     elif state == "x_id":
         try:
             bid = int(text)
