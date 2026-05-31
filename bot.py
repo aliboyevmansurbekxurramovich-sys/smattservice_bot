@@ -104,6 +104,11 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         con.commit()
         con.close()
         await q.message.reply_text(f"📦 #{bid} BERILDI!")
+    elif data.startswith("narx_"):
+        bid = int(data.split("_")[1])
+        set_ud(uid, "tahrir_id", bid)
+        set_state(uid, "tahrir_narx")
+        await q.message.reply_text(f"💰 #{bid} buyurtma uchun yangi narxni kiriting:")
     elif data.startswith("h_"):
         davr = data[2:]
         now = datetime.datetime.now()
