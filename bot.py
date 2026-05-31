@@ -211,7 +211,11 @@ async def message_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             msg += f"{STATUS.get(b['status'], '📋')} *#{b['id']}* {b['mijoz_ismi']} | {b['model']}\n"
             msg += f"   👨‍🔧 {b['usta_ismi']} | 💰 {fmt(b['narx'])} | {b['status']}\n\n"
             if b["status"] != "Berildi":
-                buttons.append([InlineKeyboardButton(f"✅ #{b['id']} Tayyor", callback_data=f"tayyor_{b['id']}"), InlineKeyboardButton(f"📦 #{b['id']} Berildi", callback_data=f"berildi_{b['id']}")])
+                buttons.append([
+                    InlineKeyboardButton(f"✅ #{b['id']} Tayyor", callback_data=f"tayyor_{b['id']}"),
+                    InlineKeyboardButton(f"📦 #{b['id']} Berildi", callback_data=f"berildi_{b['id']}"),
+                    InlineKeyboardButton(f"✏️ #{b['id']} Narx", callback_data=f"narx_{b['id']}")
+                ])
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
     elif text == "👨‍🔧 Ustalar":
         con = db()
