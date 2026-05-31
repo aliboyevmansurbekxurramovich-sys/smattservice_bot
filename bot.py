@@ -125,7 +125,7 @@ async def xarajat_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                     )
                 except: pass
 
-    elif data.startswith("berild
+    elif data.startswith("berildi_"):
                          async def message_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     text = update.message.text or ""
