@@ -85,7 +85,7 @@ async def xarajat_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     set_state(uid, "x_id")
     await update.message.reply_text("📋 Buyurtma ID sini kiriting:")
     async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
+q = update.callback_query
     await q.answer()
     uid = q.from_user.id
     data = q.data
