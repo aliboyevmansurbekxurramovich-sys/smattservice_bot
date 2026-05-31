@@ -269,7 +269,7 @@ async def message_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Menyudan tanlang:", reply_markup=main_kb())
 
-def main():
+async def main():
     init_db()
     logger.info("Bot ishga tushdi!")
     app = Application.builder().token(BOT_TOKEN).build()
@@ -278,7 +278,11 @@ def main():
     app.add_handler(CallbackQueryHandler(callback_handler))
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    app.run_polling()
+    async with app:
+        await app.start()
+        await app.updater.start_polling()
+        await app.updater.idle()
+        await app.stop()
 
 if __name__ == "__main__":
     import asyncio
