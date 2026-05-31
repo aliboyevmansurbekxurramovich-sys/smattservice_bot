@@ -278,11 +278,10 @@ async def main():
     app.add_handler(CallbackQueryHandler(callback_handler))
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    async with app:
-        await app.start()
-        await app.updater.start_polling()
-        await app.updater.idle()
-        await app.stop()
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     import asyncio
