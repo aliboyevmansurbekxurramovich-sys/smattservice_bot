@@ -109,7 +109,7 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         set_ud(uid, "tahrir_id", bid)
         set_state(uid, "tahrir_narx")
         await q.message.reply_text(f"💰 #{bid} buyurtma uchun yangi narxni kiriting:")
-        elif data.startswith("filter_"):
+    elif data.startswith("filter_"):
         status = data.split("_")[1]
         con = db()
         if status == "barchasi":
