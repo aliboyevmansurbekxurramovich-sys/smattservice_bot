@@ -109,6 +109,32 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         set_ud(uid, "tahrir_id", bid)
         set_state(uid, "tahrir_narx")
         await q.message.reply_text(f"💰 #{bid} buyurtma uchun yangi narxni kiriting:")
+        elif data.startswith("filter_"):
+        status = data.split("_")[1]
+        con = db()
+        if status == "barchasi":
+            rows = con.execute("SELECT * FROM buyurtmalar ORDER BY id DESC LIMIT 20").fetchall()
+        else:
+            rows = con.execute("SELECT * FROM buyurtmalar WHERE status=? ORDER BY id DESC", (status,)).fetchall()
+        con.close()
+        if not rows:
+            await q.message.reply_text("📭 Buyurtma yo'q.")
+            return
+        STATUS = {"Kutilmoqda": "⏳", "Jarayonda": "🔧", "Tayyor": "✅", "Berildi": "📦"}
+        msg = f"📋 *{status} buyurtmalar:*\n\n"
+        btns = []
+        for b in rows:
+            msg += f"{STATUS.get(b['status'], '📋')} *#{b['id']}* {b['mijoz_ismi']}\n"
+            msg += f"   📞 {b['mijoz_tel']} | 📱 {b['model']}\n"
+            msg += f"   🔧 {b['muammo']}\n"
+            msg += f"   👨‍🔧 {b['usta_ismi']} | 💰 {fmt(b['narx'])} | ⏰ {b['tayyor']}\n\n"
+            if b["status"] != "Berildi":
+                btns.append([
+                    InlineKeyboardButton(f"✅ #{b['id']} Tayyor", callback_data=f"tayyor_{b['id']}"),
+                    InlineKeyboardButton(f"📦 #{b['id']} Berildi", callback_data=f"berildi_{b['id']}"),
+                    InlineKeyboardButton(f"✏️ #{b['id']} Narx", callback_data=f"narx_{b['id']}")
+                ])
+        await q.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(btns) if btns else None)
     elif data.startswith("h_"):
         davr = data[2:]
         now = datetime.datetime.now()
@@ -198,25 +224,14 @@ async def message_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         clear_ud(uid)
         await update.message.reply_text(f"✅ Buyurtma qabul qilindi!\n\n📋 #{bid}\n👤 {ismi}\n📞 {tel}\n📱 {model}\n🔧 {muammo}\n👨‍🔧 {usta_ismi}\n💰 {fmt(narx)}\n⏰ {text}", reply_markup=main_kb())
     elif text == "📋 Buyurtmalar":
-        con = db()
-        rows = con.execute("SELECT * FROM buyurtmalar ORDER BY id DESC LIMIT 15").fetchall()
-        con.close()
-        if not rows:
-            await update.message.reply_text("📭 Buyurtma yo'q.")
-            return
-        STATUS = {"Kutilmoqda": "⏳", "Jarayonda": "🔧", "Tayyor": "✅", "Berildi": "📦"}
-        msg = "📋 *Buyurtmalar:*\n\n"
-        buttons = []
-        for b in rows:
-            msg += f"{STATUS.get(b['status'], '📋')} *#{b['id']}* {b['mijoz_ismi']} | {b['model']}\n"
-            msg += f"   👨‍🔧 {b['usta_ismi']} | 💰 {fmt(b['narx'])} | {b['status']}\n\n"
-            if b["status"] != "Berildi":
-                buttons.append([
-                    InlineKeyboardButton(f"✅ #{b['id']} Tayyor", callback_data=f"tayyor_{b['id']}"),
-                    InlineKeyboardButton(f"📦 #{b['id']} Berildi", callback_data=f"berildi_{b['id']}"),
-                    InlineKeyboardButton(f"✏️ #{b['id']} Narx", callback_data=f"narx_{b['id']}")
-                ])
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⏳ Kutilmoqda", callback_data="filter_Kutilmoqda"),
+             InlineKeyboardButton("🔧 Jarayonda", callback_data="filter_Jarayonda")],
+            [InlineKeyboardButton("✅ Tayyor", callback_data="filter_Tayyor"),
+             InlineKeyboardButton("📦 Berildi", callback_data="filter_Berildi")],
+            [InlineKeyboardButton("📋 Barchasi", callback_data="filter_barchasi")]
+        ])
+        await update.message.reply_text("📋 Qaysi buyurtmalarni ko'rmoqchisiz?", reply_markup=buttons)
     elif text == "👨‍🔧 Ustalar":
         con = db()
         ustalar = con.execute("SELECT * FROM ustalar").fetchall()
