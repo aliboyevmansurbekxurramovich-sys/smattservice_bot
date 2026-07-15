@@ -59,6 +59,33 @@ async def contact_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         con.close()
         await update.message.reply_text("📱 Telefon modeli:", reply_markup=main_kb())
 
+async def admin_qosh_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid not in ADMIN_IDS:
+        await update.message.reply_text("⛔ Siz admin emassiz!")
+        return
+    if not ctx.args:
+        await update.message.reply_text("📋 Ishlatish: /admin_qosh 123456789\n\nYangi adminning Telegram ID sini yozing.")
+        return
+    try:
+        yangi_id = int(ctx.args[0])
+        if yangi_id in ADMIN_IDS:
+            await update.message.reply_text("⚠️ Bu odam allaqachon admin!")
+            return
+        ADMIN_IDS.append(yangi_id)
+        await update.message.reply_text(f"✅ Yangi admin qo'shildi!\n🆔 {yangi_id}")
+    except:
+        await update.message.reply_text("❌ Noto'g'ri ID. Faqat raqam kiriting.")
+
+async def admin_list_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid not in ADMIN_IDS:
+        await update.message.reply_text("⛔ Siz admin emassiz!")
+        return
+    msg = "👑 *Adminlar ro'yxati:*\n\n"
+    for i, aid in enumerate(ADMIN_IDS, 1):
+        msg += f"{i}. `{aid}`\n"
+    await update.message.reply_text(msg, parse_mode="Markdown")
 async def xarajat_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     if uid not in ADMIN_IDS:
