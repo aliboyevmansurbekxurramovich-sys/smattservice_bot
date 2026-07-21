@@ -290,6 +290,37 @@ async def message_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         set_state(uid, "menu")
         await update.message.reply_text(f"✅ Usta qo'shildi!\n👤 {get_ud(uid, 'u_ismi')}", reply_markup=main_kb())
     elif text == "📊 Hisobot":
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📅 Bugun", callback_data="h_bugun"),
+             InlineKeyboardButton("📅 Haftalik", callback_data="h_hafta"),
+             InlineKeyboardButton("📅 Oylik", callback_data="h_oy")],
+            [InlineKeyboardButton("🗓 Aniq sana", callback_data="h_sana"),
+             InlineKeyboardButton("📆 Oraliq (masalan 15-19)", callback_data="h_oraliq")]
+        ])
+        await update.message.reply_text("📊 Davr tanlang:", reply_markup=buttons)
+
+    elif state == "h_sana_kirit":
+        try:
+            sana = datetime.datetime.strptime(text.strip(), "%d.%m.%Y")
+            start_d = sana.strftime("%Y-%m-%d 00:00:00")
+            end_d = sana.strftime("%Y-%m-%d 23:59:59")
+            await hisobot_korsat(update, start_d, end_d, f"{text.strip()} kuni")
+            set_state(uid, "menu")
+        except:
+            await update.message.reply_text("❌ Sana formati noto'g'ri. Masalan: 15.07.2026")
+
+    elif state == "h_oraliq_kirit":
+        try:
+            parts = text.strip().split("-")
+            kun1 = int(parts[0].strip())
+            kun2 = int(parts[1].strip())
+            now = datetime.datetime.now()
+            start_d = now.replace(day=kun1, hour=0, minute=0, second=0).strftime("%Y-%m-%d %H:%M:%S")
+            end_d = now.replace(day=kun2, hour=23, minute=59, second=59).strftime("%Y-%m-%d %H:%M:%S")
+            await hisobot_korsat(update, start_d, end_d, f"{kun1}-{kun2} kunlar oralig'i")
+            set_state(uid, "menu")
+        except:
+            await update.message.reply_text("❌ Format noto'g'ri. Masalan: 15-19")
         await update.message.reply_text("📊 Davr tanlang:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📅 Bugun", callback_data="h_bugun"), InlineKeyboardButton("📅 Haftalik", callback_data="h_hafta"), InlineKeyboardButton("📅 Oylik", callback_data="h_oy")]]))
     elif state == "tahrir_narx":
         try:
